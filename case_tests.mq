@@ -1,0 +1,177 @@
+include "test"
+| include "case"
+|
+
+# -- camel_case --
+
+def test_camel_case_from_snake():
+  assert_eq(camel_case("hello_world"), "helloWorld")
+end
+
+def test_camel_case_from_kebab():
+  assert_eq(camel_case("hello-world"), "helloWorld")
+end
+
+def test_camel_case_from_pascal():
+  assert_eq(camel_case("HelloWorld"), "helloWorld")
+end
+
+def test_camel_case_from_title():
+  assert_eq(camel_case("Hello World"), "helloWorld")
+end
+
+def test_camel_case_with_acronym():
+  assert_eq(camel_case("XMLHttpRequest"), "xmlHttpRequest")
+end
+
+def test_camel_case_single_word():
+  assert_eq(camel_case("hello"), "hello")
+end
+
+def test_camel_case_empty():
+  assert_eq(camel_case(""), "")
+end
+
+# -- pascal_case --
+
+def test_pascal_case_from_snake():
+  assert_eq(pascal_case("hello_world"), "HelloWorld")
+end
+
+def test_pascal_case_from_kebab():
+  assert_eq(pascal_case("hello-world"), "HelloWorld")
+end
+
+def test_pascal_case_from_camel():
+  assert_eq(pascal_case("helloWorld"), "HelloWorld")
+end
+
+def test_pascal_case_with_acronym():
+  assert_eq(pascal_case("parseJSON"), "ParseJson")
+end
+
+# -- snake_case --
+
+def test_snake_case_from_camel():
+  assert_eq(snake_case("helloWorld"), "hello_world")
+end
+
+def test_snake_case_from_pascal():
+  assert_eq(snake_case("HelloWorld"), "hello_world")
+end
+
+def test_snake_case_from_kebab():
+  assert_eq(snake_case("hello-world"), "hello_world")
+end
+
+def test_snake_case_from_title():
+  assert_eq(snake_case("Hello World"), "hello_world")
+end
+
+def test_snake_case_with_acronym():
+  assert_eq(snake_case("myHTTPServer"), "my_http_server")
+end
+
+def test_snake_case_with_numbers():
+  assert_eq(snake_case("Version2Beta"), "version2_beta")
+end
+
+# -- kebab_case --
+
+def test_kebab_case_from_camel():
+  assert_eq(kebab_case("helloWorld"), "hello-world")
+end
+
+def test_kebab_case_from_snake():
+  assert_eq(kebab_case("hello_world"), "hello-world")
+end
+
+# -- constant_case --
+
+def test_constant_case_from_camel():
+  assert_eq(constant_case("helloWorld"), "HELLO_WORLD")
+end
+
+def test_constant_case_from_kebab():
+  assert_eq(constant_case("hello-world"), "HELLO_WORLD")
+end
+
+# -- dot_case / path_case --
+
+def test_dot_case():
+  assert_eq(dot_case("helloWorld"), "hello.world")
+end
+
+def test_path_case():
+  assert_eq(path_case("helloWorld"), "hello/world")
+end
+
+# -- title_case / sentence_case --
+
+def test_title_case():
+  assert_eq(title_case("hello_world"), "Hello World")
+end
+
+def test_sentence_case():
+  assert_eq(sentence_case("hello_world example"), "Hello world example")
+end
+
+def test_sentence_case_single_word():
+  assert_eq(sentence_case("hello"), "Hello")
+end
+
+def test_sentence_case_empty():
+  assert_eq(sentence_case(""), "")
+end
+
+# -- predicates --
+
+def test_is_snake_case_true():
+  assert_true(is_snake_case("hello_world"))
+end
+
+def test_is_snake_case_false():
+  assert_false(is_snake_case("HelloWorld"))
+end
+
+def test_is_kebab_case_true():
+  assert_true(is_kebab_case("hello-world"))
+end
+
+def test_is_kebab_case_false():
+  assert_false(is_kebab_case("hello_world"))
+end
+
+def test_is_camel_case_true():
+  assert_true(is_camel_case("helloWorld"))
+end
+
+def test_is_camel_case_false():
+  assert_false(is_camel_case("HelloWorld"))
+end
+
+def test_is_pascal_case_true():
+  assert_true(is_pascal_case("HelloWorld"))
+end
+
+def test_is_pascal_case_false():
+  assert_false(is_pascal_case("helloWorld"))
+end
+
+# -- round trips --
+
+def test_round_trip_snake_to_camel_to_snake():
+  let s = "my_variable_name"
+  | assert_eq(snake_case(camel_case(s)), s)
+end
+
+def test_round_trip_kebab_to_pascal_to_kebab():
+  let s = "my-component-name"
+  | assert_eq(kebab_case(pascal_case(s)), s)
+end
+
+# -- helper --
+
+def test_case_words_splits_on_mixed_separators():
+  assert_eq(_case_words("foo_bar-baz quxQuux"), ["foo", "bar", "baz", "qux", "quux"])
+end

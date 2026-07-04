@@ -1,0 +1,94 @@
+# String case conversion utilities for mq
+# https://github.com/harehare/mq
+
+# Capitalizes the first character of a word, leaving the rest untouched.
+def _case_capitalize(w):
+  if (w == ""):
+    ""
+  else:
+    upcase(w[0:1]) + w[1:]
+end
+
+# Splits an identifier or free-form string into lowercase words.
+# Handles camelCase/PascalCase boundaries, acronyms ("XMLParser" -> "xml", "parser"),
+# and treats any run of non-alphanumeric characters as a separator.
+def _case_words(s):
+  let s1 = to_string(s)
+  | let s2 = gsub(s1, "([A-Z]+)([A-Z][a-z])", "${1} ${2}")
+  | let s3 = gsub(s2, "([a-z0-9])([A-Z])", "${1} ${2}")
+  | let words = split(s3, "[^a-zA-Z0-9]+")
+  | map(filter(words, fn(w): w != "";), downcase)
+end
+
+# Converts a string to camelCase.
+def camel_case(s):
+  let words = _case_words(s)
+  | if (is_empty(words)):
+      ""
+    else:
+      first(words) + join(map(words[1:], _case_capitalize), "")
+end
+
+# Converts a string to PascalCase.
+def pascal_case(s):
+  join(map(_case_words(s), _case_capitalize), "")
+end
+
+# Converts a string to snake_case.
+def snake_case(s):
+  join(_case_words(s), "_")
+end
+
+# Converts a string to kebab-case.
+def kebab_case(s):
+  join(_case_words(s), "-")
+end
+
+# Converts a string to CONSTANT_CASE (a.k.a. SCREAMING_SNAKE_CASE).
+def constant_case(s):
+  upcase(join(_case_words(s), "_"))
+end
+
+# Converts a string to dot.case.
+def dot_case(s):
+  join(_case_words(s), ".")
+end
+
+# Converts a string to path/case.
+def path_case(s):
+  join(_case_words(s), "/")
+end
+
+# Converts a string to Title Case.
+def title_case(s):
+  join(map(_case_words(s), _case_capitalize), " ")
+end
+
+# Converts a string to "Sentence case."
+def sentence_case(s):
+  let words = _case_words(s)
+  | if (is_empty(words)):
+      ""
+    else:
+      _case_capitalize(first(words)) + if (len(words) > 1): " " + join(words[1:], " ") else: ""
+end
+
+# Returns true if the string is already valid snake_case.
+def is_snake_case(s):
+  is_regex_match(s, "^[a-z0-9]+(_[a-z0-9]+)*$")
+end
+
+# Returns true if the string is already valid kebab-case.
+def is_kebab_case(s):
+  is_regex_match(s, "^[a-z0-9]+(-[a-z0-9]+)*$")
+end
+
+# Returns true if the string is already valid camelCase.
+def is_camel_case(s):
+  is_regex_match(s, "^[a-z][a-zA-Z0-9]*$")
+end
+
+# Returns true if the string is already valid PascalCase.
+def is_pascal_case(s):
+  is_regex_match(s, "^[A-Z][a-zA-Z0-9]*$")
+end
