@@ -9,10 +9,20 @@ def _case_capitalize(w):
     upcase(w[0:1]) + w[1:]
 end
 
+# Builds an abbreviation lookup table that maps the lowercase form of each entry
+# to its canonical spelling: ["API", "OAuth"] -> {"api": "API", "oauth": "OAuth"}.
+# A dict is returned as-is, so its keys must already be lowercase.
+def abbr_dict(abbrs):
+  if (is_dict(abbrs)):
+    abbrs
+  else:
+    fold(abbrs, {}, fn(acc, a): set(acc, downcase(a), a);)
+end
+
 # Splits an identifier or free-form string into lowercase words.
 # Handles camelCase/PascalCase boundaries, acronyms ("XMLParser" -> "xml", "parser"),
 # and treats any run of non-alphanumeric characters as a separator.
-def _case_words(s):
+def _case_split(s):
   let s1 = to_string(s)
   | let s2 = gsub(s1, "([A-Z]+)([A-Z][a-z])", "${1} ${2}")
   | let s3 = gsub(s2, "([a-z0-9])([A-Z])", "${1} ${2}")
@@ -20,57 +30,159 @@ def _case_words(s):
   | map(filter(words, fn(w): w != "";), downcase)
 end
 
-# Converts a string to camelCase.
-def camel_case(s):
-  let words = _case_words(s)
-  | if (is_empty(words)):
-      ""
+# Returns how many leading words, joined together, spell a dictionary entry.
+# Prefers the longest match and returns 1 when nothing matches.
+def _case_abbr_span(words, d, n):
+  if (n < 2):
+    1
+  elif (is_string(get(d, join(words[0:n], "")))):
+    n
+  else:
+    _case_abbr_span(words, d, n - 1)
+end
+
+# Merges runs of adjacent words that spell a dictionary entry ("o", "auth" -> "oauth").
+# The else branch is wrapped in do..end: a `|` written after an if/else attaches to the
+# whole expression, so a multi-line branch that uses `let` needs its own block.
+def _case_merge_abbrs(words, d, max_len):
+  if (is_empty(words)):
+    []
+  else:
+    do
+      let n = _case_abbr_span(words, d, min(len(words), max_len))
+      | [join(words[0:n], "")] + _case_merge_abbrs(words[n:], d, max_len)
+    end
+end
+
+# Splits a string into lowercase words, keeping each abbreviation in `abbrs`
+# ("OAuthToken" -> "oauth", "token") as a single word.
+def _case_words(s, abbrs=[]):
+  let d = abbr_dict(abbrs)
+  | let max_len = fold(keys(d), 0, fn(acc, k): max(acc, len(k));)
+  | if (max_len < 2):
+      _case_split(s)
     else:
-      first(words) + join(map(words[1:], _case_capitalize), "")
+      _case_merge_abbrs(_case_split(s), d, max_len)
+end
+
+# Returns the separator placed between words for a style, or raises for an unknown style.
+def _case_separator(style):
+  let sep = get({"camel": "", "pascal": "", "snake": "_", "kebab": "-", "constant": "_", "dot": ".", "path": "/", "title": " ", "sentence": " "}, style)
+  | if (is_none(sep)):
+      error("unknown case style: " + to_string(style))
+    else:
+      sep
+end
+
+# Picks the rule a style applies to one word:
+#   "abbreviation" - use the canonical spelling from the dictionary
+#   "capitalize"   - upper-case the first character
+#   "lowercase"    - keep the word lowercase
+#   "uppercase"    - upper-case the whole word
+def _case_word_rule(w, is_first, style, d):
+  if (style == "constant"):
+    "uppercase"
+  elif (style == "snake" || style == "kebab" || style == "dot" || style == "path"):
+    "lowercase"
+  elif (style == "camel" && is_first):
+    "lowercase"
+  elif (is_string(get(d, w))):
+    "abbreviation"
+  elif (style == "sentence" && !is_first):
+    "lowercase"
+  else:
+    "capitalize"
+end
+
+# Writes a word according to the rule chosen for it.
+def _case_apply_rule(w, rule, d):
+  if (rule == "abbreviation"):
+    get(d, w)
+  elif (rule == "capitalize"):
+    _case_capitalize(w)
+  elif (rule == "uppercase"):
+    upcase(w)
+  else:
+    w
+end
+
+# Describes how one word is written: the word itself, the rule applied, and the output.
+def _case_word_entry(w, is_first, style, d):
+  let rule = _case_word_rule(w, is_first, style, d)
+  | {"word": w, "rule": rule, "output": _case_apply_rule(w, rule, d)}
+end
+
+# Splits `s` into words and describes how `style` writes each of them.
+def _case_entries(s, style, abbrs):
+  let d = abbr_dict(abbrs)
+  | let words = _case_words(s, d)
+  | if (is_empty(words)):
+      []
+    else:
+      [_case_word_entry(first(words), true, style, d)] + map(words[1:], fn(w): _case_word_entry(w, false, style, d);)
+end
+
+def _case_convert(s, style, abbrs):
+  let sep = _case_separator(style)
+  | join(map(_case_entries(s, style, abbrs), fn(e): e["output"];), sep)
+end
+
+# Explains how `s` is converted to `style` ("camel", "pascal", "snake", "kebab",
+# "constant", "dot", "path", "title" or "sentence"): one entry per word with the
+# word, the rule adopted for it ("abbreviation", "capitalize", "lowercase" or
+# "uppercase") and the resulting text.
+def explain_case(s, style, abbrs=[]):
+  _case_separator(style)
+  | _case_entries(s, style, abbrs)
+end
+
+# The conversion functions below take an optional abbreviation dictionary
+# (an array such as ["API", "OAuth"], or the result of abbr_dict) whose entries
+# are matched as single words and written with their canonical spelling.
+
+# Converts a string to camelCase.
+def camel_case(s, abbrs=[]):
+  _case_convert(s, "camel", abbrs)
 end
 
 # Converts a string to PascalCase.
-def pascal_case(s):
-  join(map(_case_words(s), _case_capitalize), "")
+def pascal_case(s, abbrs=[]):
+  _case_convert(s, "pascal", abbrs)
 end
 
 # Converts a string to snake_case.
-def snake_case(s):
-  join(_case_words(s), "_")
+def snake_case(s, abbrs=[]):
+  _case_convert(s, "snake", abbrs)
 end
 
 # Converts a string to kebab-case.
-def kebab_case(s):
-  join(_case_words(s), "-")
+def kebab_case(s, abbrs=[]):
+  _case_convert(s, "kebab", abbrs)
 end
 
 # Converts a string to CONSTANT_CASE (a.k.a. SCREAMING_SNAKE_CASE).
-def constant_case(s):
-  upcase(join(_case_words(s), "_"))
+def constant_case(s, abbrs=[]):
+  _case_convert(s, "constant", abbrs)
 end
 
 # Converts a string to dot.case.
-def dot_case(s):
-  join(_case_words(s), ".")
+def dot_case(s, abbrs=[]):
+  _case_convert(s, "dot", abbrs)
 end
 
 # Converts a string to path/case.
-def path_case(s):
-  join(_case_words(s), "/")
+def path_case(s, abbrs=[]):
+  _case_convert(s, "path", abbrs)
 end
 
 # Converts a string to Title Case.
-def title_case(s):
-  join(map(_case_words(s), _case_capitalize), " ")
+def title_case(s, abbrs=[]):
+  _case_convert(s, "title", abbrs)
 end
 
 # Converts a string to "Sentence case."
-def sentence_case(s):
-  let words = _case_words(s)
-  | if (is_empty(words)):
-      ""
-    else:
-      _case_capitalize(first(words)) + if (len(words) > 1): " " + join(words[1:], " ") else: ""
+def sentence_case(s, abbrs=[]):
+  _case_convert(s, "sentence", abbrs)
 end
 
 # Returns true if the string is already valid snake_case.

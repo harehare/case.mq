@@ -124,6 +124,179 @@ def test_sentence_case_empty():
   assert_eq(sentence_case(""), "")
 end
 
+# -- abbreviation dictionary --
+
+def test_abbr_dict_from_array():
+  assert_eq(abbr_dict(["API", "OAuth"]), {"api": "API", "oauth": "OAuth"})
+end
+
+def test_abbr_dict_passes_dict_through():
+  assert_eq(abbr_dict({"api": "API"}), {"api": "API"})
+end
+
+def test_abbr_dict_empty():
+  assert_eq(abbr_dict([]), {})
+end
+
+def test_abbr_pascal_case_uses_canonical_spelling():
+  assert_eq(pascal_case("oauth_api_key", ["API", "OAuth"]), "OAuthAPIKey")
+end
+
+def test_abbr_camel_case_lowercases_first_word():
+  assert_eq(camel_case("API key", ["API"]), "apiKey")
+end
+
+def test_abbr_camel_case_uses_canonical_spelling_after_first_word():
+  assert_eq(camel_case("user_id", ["ID"]), "userID")
+end
+
+def test_abbr_snake_case_merges_split_abbreviation():
+  assert_eq(snake_case("OAuthToken", ["OAuth"]), "oauth_token")
+end
+
+def test_abbr_snake_case_without_dictionary_splits_abbreviation():
+  assert_eq(snake_case("OAuthToken"), "o_auth_token")
+end
+
+def test_abbr_merges_from_any_input_style():
+  let abbrs = ["OAuth"]
+  | assert_eq(snake_case("o_auth-Token", abbrs), "oauth_token")
+  | assert_eq(snake_case("oAuth token", abbrs), "oauth_token")
+  | assert_eq(snake_case("OAUTH_TOKEN", abbrs), "oauth_token")
+end
+
+def test_abbr_kebab_case():
+  assert_eq(kebab_case("OAuthToken", ["OAuth"]), "oauth-token")
+end
+
+def test_abbr_constant_case():
+  assert_eq(constant_case("OAuthToken", ["OAuth"]), "OAUTH_TOKEN")
+end
+
+def test_abbr_dot_and_path_case():
+  assert_eq(dot_case("OAuthToken", ["OAuth"]), "oauth.token")
+  | assert_eq(path_case("OAuthToken", ["OAuth"]), "oauth/token")
+end
+
+def test_abbr_title_case():
+  assert_eq(title_case("get api key by id", ["API", "ID"]), "Get API Key By ID")
+end
+
+def test_abbr_sentence_case_keeps_abbreviation_after_first_word():
+  assert_eq(sentence_case("the api key of oauth", ["API", "OAuth"]), "The API key of OAuth")
+end
+
+def test_abbr_sentence_case_first_word():
+  assert_eq(sentence_case("api key", ["API"]), "API key")
+end
+
+def test_abbr_prefers_longest_match():
+  assert_eq(snake_case("OAuth2Token", ["OAuth", "OAuth2"]), "oauth2_token")
+  | assert_eq(snake_case("a_b_c", ["ab", "abc"]), "abc")
+end
+
+def test_abbr_does_not_touch_unrelated_words():
+  assert_eq(snake_case("author", ["OAuth"]), "author")
+end
+
+def test_abbr_only_merges_adjacent_words():
+  assert_eq(pascal_case("o_x_auth", ["OAuth"]), "OXAuth")
+end
+
+def test_abbr_plural_registered_as_entry():
+  assert_eq(pascal_case("APIs", ["APIs"]), "APIs")
+end
+
+def test_abbr_accepts_prebuilt_dict():
+  let d = abbr_dict(["API", "OAuth"])
+  | assert_eq(pascal_case("oauth_api_key", d), "OAuthAPIKey")
+end
+
+def test_abbr_empty_input():
+  assert_eq(pascal_case("", ["API"]), "")
+end
+
+def test_abbr_default_is_unchanged():
+  assert_eq(pascal_case("api_key"), "ApiKey")
+  | assert_eq(pascal_case("api_key", []), "ApiKey")
+end
+
+def test_abbr_usable_as_map_callback():
+  assert_eq(map(["userId", "user-name"], snake_case), ["user_id", "user_name"])
+end
+
+def test_abbr_round_trip():
+  let abbrs = ["API", "OAuth"]
+  | let s = "oauth_api_key"
+  | assert_eq(snake_case(pascal_case(s, abbrs), abbrs), s)
+end
+
+# -- explain_case --
+
+def test_explain_case_pascal():
+  assert_eq(
+    explain_case("oauth_api_key", "pascal", ["API", "OAuth"]),
+    [
+      {"word": "oauth", "rule": "abbreviation", "output": "OAuth"},
+      {"word": "api", "rule": "abbreviation", "output": "API"},
+      {"word": "key", "rule": "capitalize", "output": "Key"}
+    ]
+  )
+end
+
+def test_explain_case_snake_reports_merged_word():
+  assert_eq(
+    explain_case("OAuthToken", "snake", ["OAuth"]),
+    [
+      {"word": "oauth", "rule": "lowercase", "output": "oauth"},
+      {"word": "token", "rule": "lowercase", "output": "token"}
+    ]
+  )
+end
+
+def test_explain_case_camel_first_word_is_lowercase():
+  assert_eq(
+    explain_case("API key", "camel", ["API"]),
+    [
+      {"word": "api", "rule": "lowercase", "output": "api"},
+      {"word": "key", "rule": "capitalize", "output": "Key"}
+    ]
+  )
+end
+
+def test_explain_case_constant():
+  assert_eq(
+    explain_case("hello", "constant"),
+    [{"word": "hello", "rule": "uppercase", "output": "HELLO"}]
+  )
+end
+
+def test_explain_case_sentence():
+  assert_eq(
+    explain_case("Hello API", "sentence", ["API"]),
+    [
+      {"word": "hello", "rule": "capitalize", "output": "Hello"},
+      {"word": "api", "rule": "abbreviation", "output": "API"}
+    ]
+  )
+end
+
+def test_explain_case_empty_input():
+  assert_eq(explain_case("", "snake"), [])
+end
+
+def test_explain_case_output_matches_conversion():
+  let abbrs = ["API", "OAuth"]
+  | assert_eq(
+      join(map(explain_case("oauth_api_key", "pascal", abbrs), fn(e): e["output"];), ""),
+      pascal_case("oauth_api_key", abbrs)
+    )
+end
+
+def test_explain_case_unknown_style_is_an_error():
+  assert_eq(try: explain_case("x", "bogus") catch: "error", "error")
+end
+
 # -- predicates --
 
 def test_is_snake_case_true():
